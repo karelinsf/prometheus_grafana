@@ -1,0 +1,187 @@
+# Install prometheus-server
+- name: install prometheus server
+  hosts: prometheus-server
+  vars:
+    version: "3.11.2"
+  become: yes
+  tasks:
+  - name: Create a group prometheus
+    ansible.builtin.group:
+      name: prometheus
+      state: present
+  - name: Create user
+    ansible.builtin.user:
+      name: prometheus
+      groups: prometheus
+      create_home: no
+  - name: Download prometheus distrib
+    ansible.builtin.get_url:
+      url: https://github.com/prometheus/prometheus/releases/download/v{{ version }}/prometheus-{{ version }}.linux-amd64.tar.gz
+      dest: /tmp
+  - name: Extract distrib
+    ansible.builtin.unarchive:
+      src: /tmp/prometheus-{{ version }}.linux-amd64.tar.gz
+      dest: /tmp
+  - name: Create a directory '/etc/prometheus' if it does not exist
+    ansible.builtin.file:
+      path: /etc/prometheus
+      state: directory
+      mode: '0755'
+  - name: Create a directory '/var/lib/prometheus' if it does not exist
+    ansible.builtin.file:
+      path: /var/lib/prometheus
+      state: directory
+      mode: '0755'
+  - name: Copy a file promtool
+    ansible.builtin.copy:
+      src: /tmp/prometheus-{{ version }}.linux-amd64/promtool
+      dest: /usr/local/bin
+      mode: a+x
+  - name: Copy a file prometheus
+    ansible.builtin.copy:
+      src: /tmp/prometheus-{{ version }}.linux-amd64/prometheus
+      dest: /usr/local/bin
+      mode: a+x
+  - name: Copy a file prometheus.yml
+    ansible.builtin.copy:
+      src: ./prometheus.yml
+      dest: /etc/prometheus
+  
+  - name: Change file ownership, group and permissions /var/lib/prometheus
+    ansible.builtin.file:
+      path: /var/lib/prometheus
+      owner: prometheus
+      group: prometheus
+
+  - name: Change file ownership, group and permissions /usr/local/bin/prometheus
+    ansible.builtin.file:
+      path: /usr/local/bin/prometheus
+      owner: prometheus
+      group: prometheus
+
+  - name: Change file ownership, group and permissions /usr/local/bin/promtool
+    ansible.builtin.file:
+      path: /usr/local/bin/promtool
+      owner: prometheus
+      group: prometheus
+
+  - name: Change file ownership, group and permissions /etc/prometheus
+    ansible.builtin.file:
+      path: /etc/prometheus
+      owner: prometheus
+      group: prometheus
+  
+  - name: Copy a file prometheus.service
+    ansible.builtin.copy:
+      src: ./prometheus.service
+      dest: /etc/systemd/system
+  - name: Run prometheus.service
+    ansible.builtin.service:
+      name: prometheus.service
+      state: started
+      enabled: yes
+  
+  - name: Remove file prometheus distrib
+    ansible.builtin.file:
+      path: /tmp/prometheus-{{ version }}.linux-amd64.tar.gz
+      state: absent
+  - name: Remove tmp file prometheus distrib
+    ansible.builtin.file:
+      path: /tmp/prometheus-{{ version }}.linux-amd64
+      state: absent
+
+# Install grafana
+- name: install grafana
+  hosts: prometheus-server
+  become: yes
+  tasks:
+  - name: Update apt packages
+    apt:
+      update_cache: yes
+  - name: install adduser libfontconfig1 musl
+    apt:
+      name:
+        - adduser
+        - libfontconfig1
+        - musl
+      state: present
+  - name: Download Grafana
+    ansible.builtin.get_url:
+      url: https://dl.grafana.com/oss/release/grafana_9.2.4_amd64.deb
+      dest: /tmp
+  - name: Install a .deb package
+    ansible.builtin.apt:
+      deb: /tmp/grafana_9.2.4_amd64.deb
+  
+  - name: Remove file prometheus distrib
+    ansible.builtin.file:
+      path: /tmp/grafana_9.2.4_amd64.deb
+      state: absent
+  - name: Run Grafana
+    ansible.builtin.service:
+      name: grafana-server
+      state: started
+      enabled: yes
+  - name: Display the output
+    debug:
+      msg: "Please go to 192.168.56.10:3000 to access the graphical interface"
+
+# Install prometheus-server
+- name: install Node Exporner
+  hosts: net
+  vars:
+    versionnode: "1.11.1"
+  become: yes
+  tasks:
+  - name: Create a group prometheus
+    ansible.builtin.group:
+      name: prometheus
+      state: present
+  - name: Create user
+    ansible.builtin.user:
+      name: prometheus
+      groups: prometheus
+      create_home: no
+  - name: Download Node Exporter distrib
+    ansible.builtin.get_url:
+      url: https://github.com/prometheus/node_exporter/releases/download/v1.11.1/node_exporter-1.11.1.linux-amd64.tar.gz
+      dest: /tmp
+  - name: Extract distrib
+    ansible.builtin.unarchive:
+      src: /tmp/node_exporter-1.11.1.linux-amd64.tar.gz
+      dest: /tmp
+      remote_src: yes
+  - name: Create a directory '/etc/prometheus/node-exporter' if it does not exist
+    ansible.builtin.file:
+      path: /etc/prometheus/node-exporter
+      state: directory
+      mode: '0755'
+  - name: Copy a file node-exporter
+    ansible.builtin.copy:
+      src: /tmp/node_exporter-1.11.1.linux-amd64/node_exporter
+      dest: /etc/prometheus/node-exporter
+      mode: a+x
+      remote_src: yes
+  - name: Change file ownership, group and permissions /etc/prometheus/node_exporter
+    ansible.builtin.file:
+      path: /etc/prometheus/node-exporter
+      owner: prometheus
+      group: prometheus
+  - name: Copy a file node-exporter.service
+    ansible.builtin.copy:
+      src: ./node-exporter.service
+      dest: /etc/systemd/system
+  - name: Run node-exporter.service
+    ansible.builtin.service:
+      name: node-exporter.service
+      state: started
+      enabled: yes
+
+  - name: Remove file prometheus distrib
+    ansible.builtin.file:
+      path: /tmp/node_exporter-{{ versionnode }}.linux-amd64.tar.gz
+      state: absent
+  - name: Remove tmp file prometheus distrib
+    ansible.builtin.file:
+      path: /tmp/node_exporter-{{ versionnode }}.linux-amd64
+      state: absent
